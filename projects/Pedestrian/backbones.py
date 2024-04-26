@@ -176,7 +176,7 @@ class INSAFusion(nn.Module):
 class DualStreamFusionBackbone(Backbone):
     def __init__(self, cfg, input_shape=None):
         super(DualStreamFusionBackbone, self).__init__()
-        
+        self.weight = 0.5
         pretrained = cfg.MODEL.BACKBONE.PRETRAINED if hasattr(cfg.MODEL.BACKBONE, 'PRETRAINED') else False
 
         def create_resnet34_backbone(pretrained, in_channels):
@@ -196,9 +196,10 @@ class DualStreamFusionBackbone(Backbone):
 
         self.visible_backbone = create_resnet34_backbone(pretrained, 3)  # RGB images, 3 channels
         self.lwir_backbone = create_resnet34_backbone(pretrained, 1)  # LWIR images, 1 channel
-
+        
         # Assuming 512 channels output from each backbone, which are then fused
-        self.fusion_layer = nn.Conv2d(512 * 2, 1024, kernel_size=1, bias=False)
+        # self.fusion_layer = nn.Conv2d(512 * 2, 1024, kernel_size=1, bias=False)
+        self.fusion_layer = nn.Conv2d(512, 1024, kernel_size=1, bias=False)
 
         # To simulate multi-level feature maps required by FPN
         self.reduce_layers = nn.ModuleDict({
@@ -213,7 +214,11 @@ class DualStreamFusionBackbone(Backbone):
         visible_img, lwir_img = x[:, 0:3, :, :], x[:, 3:4, :, :]
         visible_features = self.visible_backbone(visible_img)
         lwir_features = self.lwir_backbone(lwir_img)
-        combined_features = torch.cat([visible_features, lwir_features], dim=1)
+        # print(visible_features.shape, lwir_features.shape)
+        # combined_features = torch.cat([visible_features, lwir_features], dim=1)
+        combined_features = torch.add(visible_features * self.weight, lwir_features * (1 - self.weight))
+        # combined_features = visible_features
+        
         fused_features = self.fusion_layer(combined_features)
 
         # Create multiple feature map levels by applying reduction layers

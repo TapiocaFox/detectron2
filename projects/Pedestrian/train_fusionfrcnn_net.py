@@ -51,6 +51,7 @@ class VisableLwirDatasetMapper(DatasetMapper):
             classes_list = []
             for obj in dataset_dict["annotations"]:
                 # Assuming "bbox" and "category_id" are keys in obj
+                # print(obj)
                 boxes_list.append(obj["bbox"])
                 classes_list.append(obj["category_id"])
 
@@ -62,6 +63,7 @@ class VisableLwirDatasetMapper(DatasetMapper):
             instances = Instances(dataset_dict["image"].shape[1:])
             instances.gt_boxes = Boxes(gt_boxes)
             instances.gt_classes = gt_classes
+            # print(instances)
             
             dataset_dict["instances"] = instances
 
