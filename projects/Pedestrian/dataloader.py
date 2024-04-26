@@ -7,20 +7,24 @@ def get_kaist_dicts(data_dir, set_name, view_type):
     dataset_dicts = []
     annotations_base = os.path.join(data_dir, "kaist-rgbt", "annotations_paired", set_name)
     
-    for sequence in os.listdir(annotations_base):
+    for sequence in sorted(os.listdir(annotations_base)):
         seq_path = os.path.join(annotations_base, sequence)
+        # print(sequence)
         for view in ["visible", "lwir"]:
             if view != view_type:
                 continue
             img_dir = os.path.join(seq_path, view)
-            for file in os.listdir(img_dir):
+            for file in sorted(os.listdir(img_dir)):
                 if not file.endswith(".txt"):
                     continue
                 record = {}
                 filename = os.path.join(img_dir, file)
+                
+                image_id = f"{set_name}_{view_type}_{sequence}_{file.replace('.txt', '')}"
+                # print(file)
                 height, width = 512, 640  # Assuming all images are the same size
                 record["file_name"] = filename.replace(".txt", ".jpg").replace("annotations_paired", "images")
-                record["image_id"] = file.replace(".txt", "")
+                record["image_id"] = image_id
                 record["height"] = height
                 record["width"] = width
 
