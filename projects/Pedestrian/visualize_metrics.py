@@ -28,6 +28,8 @@ def plot_data(data, filepath):
     # Extract data
     iterations = [item['iteration'] for item in data]
     total_losses = [item['total_loss'] for item in data]
+    loss_box_reg = [item['loss_box_reg'] for item in data]
+    loss_cls = [item['loss_cls'] for item in data]
     learning_rates = [item['lr'] for item in data]
     for i, item in enumerate(data):
         try:
@@ -54,6 +56,8 @@ def plot_data(data, filepath):
     # Plot Total Loss
     plt.figure(figsize=(10, 5))
     plt.plot(iterations, total_losses, label='Total Loss', color='red')
+    plt.plot(iterations, loss_box_reg, label='Box Regression Loss', color='blue')
+    plt.plot(iterations, loss_cls, label='Classification Loss', color='green')
     plt.title('Total Loss over Iterations')
     plt.xlabel('Iteration')
     plt.ylabel('Total Loss')
