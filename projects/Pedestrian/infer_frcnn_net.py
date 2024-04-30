@@ -48,7 +48,7 @@ for d in dataset_dicts:
     v = Visualizer(img[:, :, ::-1], metadata=kaist_metadata, scale=0.5)
     out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     # print(outputs)
-    print(d["instances"])
+    # print(d["instances"])
     img_with_boxes = out.get_image()[:, :, ::-1]
 
     plt.figure(figsize=(10, 5))
