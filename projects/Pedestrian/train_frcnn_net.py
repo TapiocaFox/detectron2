@@ -79,7 +79,7 @@ def main():
         resume_training = True
         print("Resume training...")
 
-    data_dir = 'dataset'  # Change as per your dataset location
+    data_dir = 'datasets'  # Change as per your dataset location
     register_datasets(data_dir)  # Registering the dataset
 
     cfg = setup_cfg()

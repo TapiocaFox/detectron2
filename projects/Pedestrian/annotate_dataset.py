@@ -7,7 +7,7 @@ from detectron2.data import DatasetCatalog, MetadataCatalog
 view_type = "visible" # visible, lwir
 set_name = "set02"
 # Use the function to register datasets
-data_dir = 'dataset'  # Update this path
+data_dir = 'datasets'  # Update this path
 register_datasets(data_dir, set_names=[set_name])
 
 # Define your dataset and metadata

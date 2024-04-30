@@ -20,7 +20,7 @@ network = "fusionfrcnn"
 # set_name = "set11"
 set_name = "set11"
 # Register datasets if not already registered
-data_dir = 'dataset'  # Update this if your data directory is different
+data_dir = 'datasets'  # Update this if your data directory is different
 register_datasets(data_dir)
 model_path = f"./outputs/{network}"
 with open(os.path.join(model_path, "last_checkpoint"), 'r') as file:

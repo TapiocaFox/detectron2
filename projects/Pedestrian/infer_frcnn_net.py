@@ -15,7 +15,7 @@ setup_logger()
 view_type = "visible" # visible, lwir
 set_name = "set11"
 # Register datasets if not already registered
-data_dir = 'dataset'  # Update this if your data directory is different
+data_dir = 'datasets'  # Update this if your data directory is different
 register_datasets(data_dir)
 model_path = "./outputs/frcnn"
 with open(os.path.join("./outputs/frcnn", "last_checkpoint"), 'r') as file:
