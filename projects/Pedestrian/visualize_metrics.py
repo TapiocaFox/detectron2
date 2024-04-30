@@ -24,19 +24,43 @@ def read_json_data(filepath):
                 continue
     return data
 
-def plot_data(data, filepath):
+def read_infer_json_data(filepath):
+    data = []
+    with open(filepath, 'r') as file:
+        for line in file:
+            try:
+                entry = json.loads(line.strip())
+                # Ensure 'total_loss' is in the entry to consider it
+                if 'bbox/AP' in entry:
+                    data.append(entry)
+                    # print(entry)
+            except json.JSONDecodeError:
+                continue
+    return data
+
+def plot_data(data, infer_data, filepath):
     # Extract data
     iterations = [item['iteration'] for item in data]
     total_losses = [item['total_loss'] for item in data]
     loss_box_reg = [item['loss_box_reg'] for item in data]
     loss_cls = [item['loss_cls'] for item in data]
     learning_rates = [item['lr'] for item in data]
-    for i, item in enumerate(data):
-        try:
-            item['fast_rcnn/false_negative']
-        except:
-            print(i)
-            print(item)
+
+    # for i, item in enumerate(infer_data):
+    #     try:
+    #         item['bbox/AP']
+    #     except:
+    #         print(i)
+    #         print(item)             
+
+    infer_iterations = [item['iteration'] for item in infer_data]
+    ap_iterations = [item['bbox/AP'] for item in infer_data]
+    ap50_iterations = [item['bbox/AP50'] for item in infer_data]
+    ap75_iterations = [item['bbox/AP75'] for item in infer_data]
+    aps_iterations = [item['bbox/APs'] for item in infer_data]
+    apm_iterations = [item['bbox/APm'] for item in infer_data]
+    apl_iterations = [item['bbox/APl'] for item in infer_data]
+
 
         
     false_negative = [item['fast_rcnn/false_negative'] for item in data]
@@ -44,7 +68,7 @@ def plot_data(data, filepath):
     fg_cls_accuracies = [item['fast_rcnn/fg_cls_accuracy'] for item in data]
     
     # Create a figure and a set of subplots
-    fig, axs = plt.subplots(2, 1, figsize=(10, 15))
+    fig, axs = plt.subplots(3, 1, figsize=(10, 15))
 
     # Total loss plot
     axs[0].plot(iterations, total_losses, label='Total Loss', color='red')
@@ -92,6 +116,35 @@ def plot_data(data, filepath):
     print(f"Plot saved to {output_path}")
     plt.close()
 
+    # AP
+    axs[2].plot(infer_iterations, ap50_iterations, label='box/AP50', color='red')
+    axs[2].plot(infer_iterations, ap75_iterations, label='box/AP75', color='yellow')
+    axs[2].plot(infer_iterations, aps_iterations, label='box/APs', color='green')
+    axs[2].plot(infer_iterations, apm_iterations, label='box/APm', color='blue')
+    axs[2].plot(infer_iterations, apl_iterations, label='box/APl', color='purple')
+    axs[2].set_title('Average Precision')
+    axs[2].set_xlabel('Iteration')
+    axs[2].set_ylabel('Accuracy')
+    axs[2].legend()
+    axs[2].grid(True)
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(infer_iterations, ap50_iterations, label='box/AP50', color='red')
+    plt.plot(infer_iterations, ap75_iterations, label='box/AP75', color='yellow')
+    plt.plot(infer_iterations, aps_iterations, label='box/APs', color='green')
+    plt.plot(infer_iterations, apm_iterations, label='box/APm', color='blue')
+    plt.plot(infer_iterations, apl_iterations, label='box/APl', color='purple')
+    plt.title('Average Precision')
+    plt.xlabel('Iteration')
+    plt.ylabel('Accuracy')
+    plt.legend()
+    plt.grid(True)
+    output_path = os.path.join(os.path.dirname(filepath), 'plot_results_ap.png')
+    plt.savefig(output_path)
+    print(f"Plot saved to {output_path}")
+    plt.close()
+
+
     # Save plot to the same directory as the metrics.json file
     output_path = os.path.join(os.path.dirname(filepath), 'plot_results_all.png')
     plt.savefig(output_path)
@@ -114,7 +167,8 @@ def main():
         return
     selected_file = choose_file(metrics_files)
     data = read_json_data(selected_file)
-    plot_data(data, selected_file)
+    infer_data = read_infer_json_data(selected_file)
+    plot_data(data, infer_data, selected_file)
 
 if __name__ == "__main__":
     main()
