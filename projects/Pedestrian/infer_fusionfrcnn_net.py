@@ -32,7 +32,7 @@ def setup_cfg():
     cfg.MODEL.WEIGHTS = last_checkpoint_path  # load the last model
     cfg.MODEL.BACKBONE.NAME = "DualStreamFusionBackbone"  # Use the custom backbone
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # 1 class (people)
-    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.5  # set the testing threshold for this model
+    cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.1  # set the testing threshold for this model
     
     # 4 Channels config
     cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675, 120]

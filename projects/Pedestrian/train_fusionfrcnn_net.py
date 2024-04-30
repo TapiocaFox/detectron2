@@ -114,7 +114,7 @@ def setup_cfg():
     cfg.merge_from_file("../../configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
 
     # Training Dataset
-    cfg.DATASETS.TRAIN = ("kaist_set00_visible_lwir",) # "kaist_set01_visible_lwir", "kaist_set02_visible_lwir", "kaist_set03_visible_lwir", "kaist_set04_visible_lwir", "kaist_set05_visible_lwir", "kaist_set06_visible_lwir", "kaist_set07_visible_lwir", "kaist_set08_visible_lwir", "kaist_set09_visible_lwir", "kaist_set10_visible_lwir", )  # Example, add other dataset names if required
+    cfg.DATASETS.TRAIN = ("kaist_set00_visible_lwir", "kaist_set01_visible_lwir", "kaist_set02_visible_lwir", "kaist_set03_visible_lwir", "kaist_set04_visible_lwir", "kaist_set05_visible_lwir", "kaist_set06_visible_lwir", "kaist_set07_visible_lwir", "kaist_set08_visible_lwir", "kaist_set09_visible_lwir", "kaist_set10_visible_lwir", )  # Example, add other dataset names if required
     cfg.DATASETS.TEST = ("kaist_set11_visible_lwir", )  # Add test dataset names here if validation is required
     # cfg.DATALOADER.MAPPER = VisableLwirDatasetMapper
     # Number of data loading workers
@@ -153,7 +153,7 @@ def main():
         resume_training = True
         print("Resume training...")
 
-    data_dir = 'dataset'  # Change as per your dataset location
+    data_dir = 'dataset'  # Change as per your dataset location 
     register_datasets(data_dir)  # Registering the dataset
 
     cfg = setup_cfg()

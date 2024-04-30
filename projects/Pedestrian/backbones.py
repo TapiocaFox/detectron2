@@ -238,3 +238,46 @@ class DualStreamFusionBackbone(Backbone):
             'p5': ShapeSpec(channels=256, stride=32),
             'p6': ShapeSpec(channels=256, stride=64),
         }
+
+@BACKBONE_REGISTRY.register()
+class DebugVisibleResNet50FPNBackbone(Backbone):
+    def __init__(self, cfg, input_shape=None):
+        super(DebugVisibleResNet50FPNBackbone, self).__init__()
+        pretrained = cfg.MODEL.BACKBONE.PRETRAINED if hasattr(cfg.MODEL.BACKBONE, 'PRETRAINED') else False
+
+        def create_resnet50_fpn_backbone(pretrained):
+            model = torchvision.models.detection.backbone_utils.resnet_fpn_backbone('resnet50', pretrained=pretrained)
+            # Modify the first convolutional layer to accept 3 input channels (RGB)
+            model.body.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            return model
+
+        self.visible_backbone = create_resnet50_fpn_backbone(pretrained)
+
+    def forward(self, x):
+        visible_img = x[:, 0:3, :, :]  # Select the first 3 channels for the visible (RGB) input
+        visible_features = self.visible_backbone(visible_img)
+        # print(visible_features.shape)
+        return {"p2": visible_features[0], "p3": visible_features[1], "p4": visible_features[2], "p5": visible_features[3]}  # Output features from multiple levels (p2, p3, p4, p5)
+
+    def output_shape(self):
+        return {
+            "p2": ShapeSpec(channels=256, stride=4),
+            "p3": ShapeSpec(channels=256, stride=8),
+            "p4": ShapeSpec(channels=256, stride=16),
+            "p5": ShapeSpec(channels=256, stride=32),
+            "p6": ShapeSpec(channels=256, stride=64),
+        }
+
+
+@BACKBONE_REGISTRY.register()
+class ToyBackbone(Backbone):
+  def __init__(self, cfg, input_shape):
+    super().__init__()
+    # create your own backbone
+    self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=16, padding=3)
+
+  def forward(self, image):
+    return {"conv1": self.conv1(image)}
+
+  def output_shape(self):
+    return {"conv1": ShapeSpec(channels=64, stride=16)}
