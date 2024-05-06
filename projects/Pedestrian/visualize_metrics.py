@@ -44,7 +44,7 @@ def plot_data(data, infer_data, filepath):
     total_losses = [item['total_loss'] for item in data]
     loss_box_reg = [item['loss_box_reg'] for item in data]
     loss_cls = [item['loss_cls'] for item in data]
-    learning_rates = [item['lr'] for item in data]
+    # learning_rates = [item['lr'] for item in data]
 
     # for i, item in enumerate(infer_data):
     #     try:
@@ -72,9 +72,12 @@ def plot_data(data, infer_data, filepath):
 
     # Total loss plot
     axs[0].plot(iterations, total_losses, label='Total Loss', color='red')
+    axs[0].plot(iterations, loss_box_reg, label='Box Regression Loss', color='blue')
+    axs[0].plot(iterations, loss_cls, label='Classification Loss', color='green')
     axs[0].set_title('Total Loss over Iterations')
     axs[0].set_xlabel('Iteration')
     axs[0].set_ylabel('Total Loss')
+    axs[0].legend()
     axs[0].grid(True)
 
     # Plot Total Loss
@@ -85,6 +88,7 @@ def plot_data(data, infer_data, filepath):
     plt.title('Total Loss over Iterations')
     plt.xlabel('Iteration')
     plt.ylabel('Total Loss')
+    plt.legend()
     plt.grid(True)
     output_path = os.path.join(os.path.dirname(filepath), 'plot_results_loss.png')
     plt.savefig(output_path)

@@ -10,9 +10,10 @@ from detectron2.utils.logger import setup_logger
 import matplotlib.pyplot as plt
 
 from dataloader import register_datasets
-from backbones import DualStreamFusionBackbone
+from backbones import INSAFusion
 
 from PIL import Image
+from utils import VisableLwirDatasetMapper, PIXEL_MEAN, PIXEL_STD
 
 setup_logger()
 
@@ -30,13 +31,13 @@ def setup_cfg():
     cfg = get_cfg()
     cfg.merge_from_file("../../configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
     cfg.MODEL.WEIGHTS = last_checkpoint_path  # load the last model
-    cfg.MODEL.BACKBONE.NAME = "DualStreamFusionBackbone"  # Use the custom backbone
+    cfg.MODEL.BACKBONE.NAME = "INSAFusion"  # Use the custom backbone
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # 1 class (people)
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.1  # set the testing threshold for this model
     
     # 4 Channels config
-    cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675, 120]
-    cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0, 1.0]
+    cfg.MODEL.PIXEL_MEAN = PIXEL_MEAN
+    cfg.MODEL.PIXEL_STD = PIXEL_STD
     cfg.IMAGE_SHAPE = 4
 
     # cfg.DATASETS.TEST = ("kaist_set11_visible", )  # set the test dataset

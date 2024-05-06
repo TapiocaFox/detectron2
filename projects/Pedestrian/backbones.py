@@ -17,13 +17,13 @@ warnings.filterwarnings(action='ignore')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-class INSAFusion(nn.Module):
+@BACKBONE_REGISTRY.register()
+class INSAFusion(Backbone):
     """
     VGG base convolutions to produce lower-level feature maps.
     """
-    def __init__(self):
-        super(VGGBase, self).__init__()
+    def __init__(self, cfg, input_shape=None):
+        super(INSAFusion, self).__init__()
 
         # RGB
         self.conv1_1_vis = nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=True) 
@@ -92,9 +92,15 @@ class INSAFusion(nn.Module):
                          dim=256,
                          n_head=1,
                          ffn_dim=4)
+
+        pretrained = cfg.MODEL.BACKBONE.PRETRAINED if hasattr(cfg.MODEL.BACKBONE, 'PRETRAINED') else False
+        if pretrained:
+            self.load_pretrained_layers()
         
 
-    def forward(self, image_vis, image_lwir):
+    def forward(self, x):
+        # print("forward")
+        image_vis, image_lwir = x[:, 0:3, :, :], x[:, 3:4, :, :]
         """
         Forward propagation.
 
@@ -126,7 +132,7 @@ class INSAFusion(nn.Module):
         out_lwir = F.relu(self.conv3_1_bn_lwir(self.conv3_1_lwir(out_lwir))) 
         out_lwir = F.relu(self.conv3_2_bn_lwir(self.conv3_2_lwir(out_lwir))) 
         out_lwir = F.relu(self.conv3_3_bn_lwir(self.conv3_3_lwir(out_lwir))) 
-        
+        print("CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
         # INSA fusion
         out_vis = F.relu(self.conv1x1_vis(out_vis))
         out_lwir = F.relu(self.conv1x1_lwir(out_lwir))
@@ -135,10 +141,15 @@ class INSAFusion(nn.Module):
         
         # Weighted summation
         out = torch.add(out_vis * self.weight, out_lwir * (1 - self.weight))
-        
+        print("out CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
         # Final pooling
         out = self.pool3(out)
-        return out
+        print("pool3 CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
+        print(out.shape)
+        # return out
+        return {
+            'res4': out
+        }
 
 
     def load_pretrained_layers(self):
@@ -171,6 +182,11 @@ class INSAFusion(nn.Module):
         self.load_state_dict(state_dict)
 
         print("Load Model: INSANet\n")
+    
+    def output_shape(self):
+        return {
+            'res4': ShapeSpec(channels=256, stride=8)
+        }
 
 @BACKBONE_REGISTRY.register()
 class DualStreamFusionBackbone(Backbone):
@@ -222,13 +238,14 @@ class DualStreamFusionBackbone(Backbone):
         fused_features = self.fusion_layer(combined_features)
 
         # Create multiple feature map levels by applying reduction layers
-        return {
+        out = {
             'p2': self.reduce_layers['p2'](fused_features),
             'p3': self.reduce_layers['p3'](fused_features),
             'p4': self.reduce_layers['p4'](fused_features),
             'p5': self.reduce_layers['p5'](fused_features),
             'p6': self.reduce_layers['p6'](fused_features),
         }
+        return out
 
     def output_shape(self):
         return {
@@ -255,9 +272,13 @@ class DebugVisibleResNet50FPNBackbone(Backbone):
 
     def forward(self, x):
         visible_img = x[:, 0:3, :, :]  # Select the first 3 channels for the visible (RGB) input
+        # print(visible_img)
         visible_features = self.visible_backbone(visible_img)
         # print(visible_features.shape)
-        return {"p2": visible_features[0], "p3": visible_features[1], "p4": visible_features[2], "p5": visible_features[3]}  # Output features from multiple levels (p2, p3, p4, p5)
+        # print("Visible features keys:", visible_features.keys())
+        # print(visible_features['0'].shape, visible_features['1'].shape, visible_features['2'].shape, visible_features['3'].shape,  visible_features['pool'].shape)
+        # raise Exception("Debug")
+        return {"p2": visible_features['0'], "p3": visible_features['1'], "p4": visible_features['2'], "p5": visible_features['3'], "p6": visible_features['pool']}  # Output features from multiple levels (p2, p3, p4, p5)
 
     def output_shape(self):
         return {

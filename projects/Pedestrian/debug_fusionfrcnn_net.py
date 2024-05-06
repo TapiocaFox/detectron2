@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import torch
-from torchvision import transforms
 from detectron2.config import get_cfg
 from detectron2.engine import DefaultTrainer, HookBase
 from detectron2.utils.logger import setup_logger
@@ -10,65 +9,15 @@ import detectron2.utils as utils
 # from detectron2.data.detection_utils import read_image
 from detectron2.data import build_detection_test_loader, build_detection_train_loader
 from detectron2.evaluation import COCOEvaluator
-from detectron2.data import DatasetMapper
-from detectron2.data.transforms import ResizeShortestEdge
-from detectron2.structures import Instances, Boxes
 
 from dataloader import register_datasets
 from detectron2.modeling import BACKBONE_REGISTRY
 from backbones import DebugVisibleResNet50FPNBackbone, ToyBackbone
 
-from PIL import Image
-
+from utils import VisableLwirDatasetMapper, FusionTrainer, PIXEL_MEAN, PIXEL_STD
 # Initialize logger
 setup_logger()
 
-convert_tensor = transforms.ToTensor()
-
-class VisableLwirDatasetMapper(DatasetMapper):
-    def __init__(self, cfg, is_train=True):
-        super().__init__(cfg, is_train=is_train)
-        self.augmentations = [ResizeShortestEdge(
-            cfg.INPUT.MIN_SIZE_TRAIN,
-            cfg.INPUT.MAX_SIZE_TRAIN,
-            cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING
-        )] if is_train else []
-
-        self.transform = transforms.Compose([
-            transforms.Normalize(mean=cfg.MODEL.PIXEL_MEAN, std=cfg.MODEL.PIXEL_STD)
-        ])
-
-    def __call__(self, dataset_dict):
-        # dataset_dict = super().__call__(dataset_dict)
-        visible_tensor = torch.as_tensor(convert_tensor(Image.open(dataset_dict["file_name"]["visible"])))
-        lwir_tensor = torch.as_tensor(convert_tensor(Image.open(dataset_dict["file_name"]["lwir"]).convert('L')))
-        # print(visible_tensor.shape, lwir_tensor.shape)
-        visible_lwir_tensor = torch.cat([visible_tensor, lwir_tensor], dim=0)
-        dataset_dict["image"] = self.transform(visible_lwir_tensor)
-        
-        if "annotations" in dataset_dict and self.is_train:
-            boxes_list = []
-            classes_list = []
-            for obj in dataset_dict["annotations"]:
-                # Assuming "bbox" and "category_id" are keys in obj
-                # print(obj)
-                boxes_list.append(obj["bbox"])
-                classes_list.append(obj["category_id"])
-
-            # Convert lists to tensors
-            gt_boxes = torch.tensor(boxes_list, dtype=torch.float32)
-            gt_classes = torch.tensor(classes_list, dtype=torch.int64)
-            
-            # Create Instances object
-            instances = Instances(dataset_dict["image"].shape[1:])
-            instances.gt_boxes = Boxes(gt_boxes)
-            instances.gt_classes = gt_classes
-            # print(instances)
-            
-            dataset_dict["instances"] = instances
-
-        return dataset_dict
-        # return visible_tensor
 
 class ValidationLoss(HookBase):
     def __init__(self, cfg):
@@ -85,29 +34,6 @@ class ValidationLoss(HookBase):
             storage = get_event_storage()
             if "bbox/AP" in results:
                 storage.put_scalar("val_bbox/AP", results["bbox/AP"], smoothing_hint=False)
-
-class Trainer(DefaultTrainer):
-    """
-    We subclass DefaultTrainer to add a custom evaluator (if necessary).
-    """
-    @classmethod
-    def build_evaluator(cls, cfg, dataset_name, output_folder=None):
-        if output_folder is None:
-            output_folder = os.path.join(cfg.OUTPUT_DIR, "inference")
-        return COCOEvaluator(dataset_name, cfg, True, output_folder)
-
-    @classmethod
-    def build_train_loader(cls, cfg):
-        return build_detection_train_loader(cfg, mapper=VisableLwirDatasetMapper(cfg, is_train=True))
-
-    @classmethod
-    def build_test_loader(cls, cfg, dataset_name):
-        return build_detection_test_loader(cfg, dataset_name, mapper=VisableLwirDatasetMapper(cfg, is_train=False))
-    # def build_hooks(self):
-    #     hooks = super().build_hooks()
-    #     hooks.insert(-1, ValidationLoss(self.cfg))
-    #     return hooks
-
 
 def setup_cfg():
     cfg = get_cfg()
@@ -136,8 +62,8 @@ def setup_cfg():
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # Only one class (people)
 
     # 4 Channels config
-    cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675, 120]
-    cfg.MODEL.PIXEL_STD = [1.0, 1.0, 1.0, 1.0]
+    cfg.MODEL.PIXEL_MEAN = PIXEL_MEAN
+    cfg.MODEL.PIXEL_STD = PIXEL_STD
     cfg.IMAGE_SHAPE = 4
 
     cfg.TEST.EVAL_PERIOD = 1000
@@ -159,7 +85,7 @@ def main():
     cfg = setup_cfg()
     os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)
 
-    trainer = Trainer(cfg)
+    trainer = FusionTrainer(cfg)
     if resume_training:
         # Automatically resume from the last checkpoint if one exists
         trainer.resume_or_load(resume=True)

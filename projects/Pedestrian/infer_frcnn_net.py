@@ -44,6 +44,7 @@ os.makedirs(output_dir, exist_ok=True)  # Create directory if it doesn't exist
 for d in dataset_dicts:
     image_id = d["image_id"]
     img = cv2.imread(d["file_name"])
+    # print(img)
     outputs = predictor(img)
     v = Visualizer(img[:, :, ::-1], metadata=kaist_metadata, scale=0.5)
     out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
