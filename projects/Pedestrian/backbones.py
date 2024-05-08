@@ -19,6 +19,135 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 @BACKBONE_REGISTRY.register()
 class INSAFusion(Backbone):
+    def __init__(self, cfg, input_shape=None):
+        super(INSAFusion, self).__init__()
+
+        # RGB pathways
+        self.conv1_1_vis = nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=True)
+        self.conv1_1_bn_vis = nn.BatchNorm2d(64)
+        self.conv1_2_vis = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
+        self.conv1_2_bn_vis = nn.BatchNorm2d(64)
+        self.pool1_vis = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+
+        self.conv2_1_vis = nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=True)
+        self.conv2_1_bn_vis = nn.BatchNorm2d(128)
+        self.conv2_2_vis = nn.Conv2d(128, 128, kernel_size=3, padding=1, bias=True)
+        self.conv2_2_bn_vis = nn.BatchNorm2d(128)
+        self.pool2_vis = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+
+        self.conv3_1_vis = nn.Conv2d(128, 256, kernel_size=3, padding=1, bias=True)
+        self.conv3_1_bn_vis = nn.BatchNorm2d(256)
+        self.conv3_2_vis = nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=True)
+        self.conv3_2_bn_vis = nn.BatchNorm2d(256)
+        self.conv3_3_vis = nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=True)
+        self.conv3_3_bn_vis = nn.BatchNorm2d(256)
+        self.pool3_vis = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+
+        # LWIR pathways
+        self.conv1_1_lwir = nn.Conv2d(1, 64, kernel_size=3, padding=1, bias=True)
+        self.conv1_1_bn_lwir = nn.BatchNorm2d(64)
+        self.conv1_2_lwir = nn.Conv2d(64, 64, kernel_size=3, padding=1, bias=True)
+        self.conv1_2_bn_lwir = nn.BatchNorm2d(64)
+        self.pool1_lwir = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+
+        self.conv2_1_lwir = nn.Conv2d(64, 128, kernel_size=3, padding=1, bias=True)
+        self.conv2_1_bn_lwir = nn.BatchNorm2d(128)
+        self.conv2_2_lwir = nn.Conv2d(128, 128, kernel_size=3, padding=1, bias=True)
+        self.conv2_2_bn_lwir = nn.BatchNorm2d(128)
+        self.pool2_lwir = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+
+        self.conv3_1_lwir = nn.Conv2d(128, 256, kernel_size=3, padding=1, bias=True)
+        self.conv3_1_bn_lwir = nn.BatchNorm2d(256)
+        self.conv3_2_lwir = nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=True)
+        self.conv3_2_bn_lwir = nn.BatchNorm2d(256)
+        self.conv3_3_lwir = nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=True)
+        self.conv3_3_bn_lwir = nn.BatchNorm2d(256)
+        self.pool3_lwir = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)
+
+        # INSA fusion
+        self.insa = INSA(n_iter=2, dim=256, n_head=1, ffn_dim=4)
+        
+        # Weight parameter for fusion
+        self.weight = 0.5
+
+        if cfg.MODEL.BACKBONE.PRETRAINED:
+            self.load_pretrained_layers()
+
+    def forward(self, x):
+        image_vis, image_lwir = x[:, 0:3, :, :], x[:, 3:4, :, :]
+
+        # Process Visible pathway
+        out_vis = F.relu(self.conv1_1_bn_vis(self.conv1_1_vis(image_vis)))
+        out_vis = F.relu(self.conv1_2_bn_vis(self.conv1_2_vis(out_vis)))
+        p2 = self.pool1_vis(out_vis)
+
+        out_vis = F.relu(self.conv2_1_bn_vis(self.conv2_1_vis(p2)))
+        out_vis = F.relu(self.conv2_2_bn_vis(self.conv2_2_vis(out_vis)))
+        p3 = self.pool2_vis(out_vis)
+
+        out_vis = F.relu(self.conv3_1_bn_vis(self.conv3_1_vis(p3)))
+        out_vis = F.relu(self.conv3_2_bn_vis(self.conv3_2_vis(out_vis)))
+        out_vis = F.relu(self.conv3_3_bn_vis(self.conv3_3_vis(out_vis)))
+        p4 = self.pool3_vis(out_vis)
+
+        # Process LWIR pathway
+        out_lwir = F.relu(self.conv1_1_bn_lwir(self.conv1_1_lwir(image_lwir)))
+        out_lwir = F.relu(self.conv1_2_bn_lwir(self.conv1_2_lwir(out_lwir)))
+        out_lwir = self.pool1_lwir(out_lwir)
+
+        out_lwir = F.relu(self.conv2_1_bn_lwir(self.conv2_1_lwir(out_lwir)))
+        out_lwir = F.relu(self.conv2_2_bn_lwir(self.conv2_2_lwir(out_lwir)))
+        out_lwir = self.pool2_lwir(out_lwir)
+
+        out_lwir = F.relu(self.conv3_1_bn_lwir(self.conv3_1_lwir(out_lwir)))
+        out_lwir = F.relu(self.conv3_2_bn_lwir(self.conv3_2_lwir(out_lwir)))
+        out_lwir = F.relu(self.conv3_3_bn_lwir(self.conv3_3_lwir(out_lwir)))
+        out_lwir = self.pool3_lwir(out_lwir)
+
+        # Fusion
+        out_vis, out_lwir = self.insa(out_vis, out_lwir)
+        fused_out = torch.add(out_vis * self.weight, out_lwir * (1 - self.weight))
+
+        p5 = self.pool3_vis(fused_out)
+        p6 = self.pool3_vis(p5)
+
+        return {
+            'p2': p2,
+            'p3': p3,
+            'p4': p4,
+            'p5': p5,
+            'p6': p6
+        }
+
+    def load_pretrained_layers(self):
+        """
+        Load pretrained VGG model weights into the convolutional layers.
+        Modify the first convolutional layer for the LWIR input.
+        """
+        pretrained_dict = torchvision.models.vgg16_bn(pretrained=True).state_dict()
+        model_dict = self.state_dict()
+        
+        # Update the model dict with pretrained weights
+        for k, v in pretrained_dict.items():
+            if k in model_dict and model_dict[k].size() == v.size():
+                model_dict[k] = v
+            elif 'conv1_1_lwir.weight' in k:
+                model_dict[k] = v.mean(dim=1, keepdim=True)
+        self.load_state_dict(model_dict)
+
+        print("Loaded pretrained weights from VGG-16.")
+
+    def output_shape(self):
+        return {
+            'p2': ShapeSpec(channels=64, stride=4),
+            'p3': ShapeSpec(channels=128, stride=8),
+            'p4': ShapeSpec(channels=256, stride=16),
+            'p5': ShapeSpec(channels=256, stride=32),
+            'p6': ShapeSpec(channels=256, stride=64),
+        }
+
+@BACKBONE_REGISTRY.register()
+class INSAFusionBackup(Backbone):
     """
     VGG base convolutions to produce lower-level feature maps.
     """
@@ -96,7 +225,7 @@ class INSAFusion(Backbone):
         pretrained = cfg.MODEL.BACKBONE.PRETRAINED if hasattr(cfg.MODEL.BACKBONE, 'PRETRAINED') else False
         if pretrained:
             self.load_pretrained_layers()
-        
+
 
     def forward(self, x):
         # print("forward")
@@ -132,7 +261,7 @@ class INSAFusion(Backbone):
         out_lwir = F.relu(self.conv3_1_bn_lwir(self.conv3_1_lwir(out_lwir))) 
         out_lwir = F.relu(self.conv3_2_bn_lwir(self.conv3_2_lwir(out_lwir))) 
         out_lwir = F.relu(self.conv3_3_bn_lwir(self.conv3_3_lwir(out_lwir))) 
-        print("CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
+        # print("CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
         # INSA fusion
         out_vis = F.relu(self.conv1x1_vis(out_vis))
         out_lwir = F.relu(self.conv1x1_lwir(out_lwir))
@@ -141,15 +270,13 @@ class INSAFusion(Backbone):
         
         # Weighted summation
         out = torch.add(out_vis * self.weight, out_lwir * (1 - self.weight))
-        print("out CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
+        # print("out CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
         # Final pooling
         out = self.pool3(out)
-        print("pool3 CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
+        # print("pool3 CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT CHECKPOINT")
         print(out.shape)
         # return out
-        return {
-            'res4': out
-        }
+        return {'p1': p1, 'p2': p2, 'p3': p3, 'p4': p4, 'p5': p5, 'p6': p6}
 
 
     def load_pretrained_layers(self):
@@ -185,8 +312,13 @@ class INSAFusion(Backbone):
     
     def output_shape(self):
         return {
-            'res4': ShapeSpec(channels=256, stride=8)
+            'p2': ShapeSpec(channels=256, stride=4),
+            'p3': ShapeSpec(channels=256, stride=8),
+            'p4': ShapeSpec(channels=256, stride=16),
+            'p5': ShapeSpec(channels=256, stride=32),
+            'p6': ShapeSpec(channels=256, stride=64),
         }
+
 
 @BACKBONE_REGISTRY.register()
 class DualStreamFusionBackbone(Backbone):
@@ -196,10 +328,11 @@ class DualStreamFusionBackbone(Backbone):
         pretrained = cfg.MODEL.BACKBONE.PRETRAINED if hasattr(cfg.MODEL.BACKBONE, 'PRETRAINED') else False
 
         def create_resnet34_backbone(pretrained, in_channels):
-            model = resnet34(pretrained=pretrained)
-            # Modify the first convolutional layer to accept a specific number of input channels
-            old_conv = model.conv1
-            model.conv1 = nn.Conv2d(in_channels, old_conv.out_channels, 
+            # model = torchvision.models.detection.backbone_utils.resnet_fpn_backbone('resnet50', pretrained=pretrained)
+            model = torchvision.models.detection.backbone_utils.resnet_fpn_backbone('resnet18', pretrained=pretrained)
+            old_conv = model.body.conv1 
+            # Modify the first convolutional layer to accept 3 input channels (RGB)
+            model.body.conv1 = nn.Conv2d(in_channels, old_conv.out_channels, 
                                     kernel_size=old_conv.kernel_size, 
                                     stride=old_conv.stride, 
                                     padding=old_conv.padding, 
@@ -207,9 +340,9 @@ class DualStreamFusionBackbone(Backbone):
             if pretrained and in_channels == 1:
                 # Initialize the new conv layer weights for a single channel by averaging RGB weights
                 weight = old_conv.weight.data.mean(dim=1, keepdim=True)
-                model.conv1.weight.data = weight
-            return nn.Sequential(*list(model.children())[:-2])  # Exclude the avgpool and fc layers
-
+                model.body.conv1.weight.data = weight
+            return model  # Exclude the avgpool and fc layers
+    
         self.visible_backbone = create_resnet34_backbone(pretrained, 3)  # RGB images, 3 channels
         self.lwir_backbone = create_resnet34_backbone(pretrained, 1)  # LWIR images, 1 channel
         
@@ -225,25 +358,34 @@ class DualStreamFusionBackbone(Backbone):
             'p5': nn.Conv2d(1024, 256, kernel_size=1),
             'p6': nn.Conv2d(1024, 256, kernel_size=1),
         })
+        
 
     def forward(self, x):
         visible_img, lwir_img = x[:, 0:3, :, :], x[:, 3:4, :, :]
+        # print("visible_backbone")
         visible_features = self.visible_backbone(visible_img)
+        # print("lwir_backbone")
         lwir_features = self.lwir_backbone(lwir_img)
+        # print(visible_features)
+        # print(lwir_features)
+        # print("debug")
+        # print(visible_features['0'])
         # print(visible_features.shape, lwir_features.shape)
         # combined_features = torch.cat([visible_features, lwir_features], dim=1)
-        combined_features = torch.add(visible_features * self.weight, lwir_features * (1 - self.weight))
-        # combined_features = visible_features
-        
-        fused_features = self.fusion_layer(combined_features)
+        # print("combined_features")
 
+        # combined_features = torch.add(visible_features * self.weight, lwir_features * (1 - self.weight))
+        # combined_features = visible_features
+        # print("fused_features")
+        # fused_features = self.fusion_layer(combined_features)
+        # print("out")
         # Create multiple feature map levels by applying reduction layers
         out = {
-            'p2': self.reduce_layers['p2'](fused_features),
-            'p3': self.reduce_layers['p3'](fused_features),
-            'p4': self.reduce_layers['p4'](fused_features),
-            'p5': self.reduce_layers['p5'](fused_features),
-            'p6': self.reduce_layers['p6'](fused_features),
+            'p2': torch.add(visible_features['0'] * self.weight, lwir_features['0'] * (1 - self.weight)),
+            'p3': torch.add(visible_features['1'] * self.weight, lwir_features['1'] * (1 - self.weight)),
+            'p4': torch.add(visible_features['2'] * self.weight, lwir_features['2'] * (1 - self.weight)),
+            'p5': torch.add(visible_features['3'] * self.weight, lwir_features['3'] * (1 - self.weight)),
+            'p6': torch.add(visible_features['pool'] * self.weight, lwir_features['pool'] * (1 - self.weight)),
         }
         return out
 

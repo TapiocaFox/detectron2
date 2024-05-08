@@ -24,7 +24,7 @@ setup_logger()
 
 def setup_cfg():
     cfg = get_cfg()
-    cfg.merge_from_file("../../configs/COCO-Detection/faster_rcnn_R_50_C4_3x.yaml")
+    cfg.merge_from_file("../../configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
 
     # Training Dataset
     cfg.DATASETS.TRAIN = ("kaist_set00_visible_lwir", "kaist_set01_visible_lwir", "kaist_set02_visible_lwir", "kaist_set03_visible_lwir", "kaist_set04_visible_lwir", "kaist_set05_visible_lwir", "kaist_set06_visible_lwir", "kaist_set07_visible_lwir", "kaist_set08_visible_lwir", "kaist_set09_visible_lwir", "kaist_set10_visible_lwir", )  # Example, add other dataset names if required
@@ -38,7 +38,7 @@ def setup_cfg():
 
     # Initial weights path: load weights from a model pretrained on COCO
 
-    cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_C4_3x/137849393/model_final_f97cb7.pkl"
+    cfg.MODEL.WEIGHTS = "detectron2://COCO-Detection/faster_rcnn_R_50_FPN_3x/137849458/model_final_280758.pkl"
 
     # Learning rate and batch size adjustments
     cfg.SOLVER.IMS_PER_BATCH = 2

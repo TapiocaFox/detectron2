@@ -1,12 +1,15 @@
 import torch
+import os
 import numpy as np
+from torchvision import transforms
 from detectron2.data import DatasetMapper
 from detectron2.data.transforms import ResizeShortestEdge
-from torchvision import transforms
 from detectron2.structures import Instances, Boxes
 from detectron2.engine import DefaultTrainer, HookBase
 from detectron2.data import build_detection_test_loader, build_detection_train_loader
+from detectron2.evaluation import COCOEvaluator
 from PIL import Image
+
 
 convert_tensor = transforms.ToTensor()
 

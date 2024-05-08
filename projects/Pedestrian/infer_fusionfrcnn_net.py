@@ -10,15 +10,18 @@ from detectron2.utils.logger import setup_logger
 import matplotlib.pyplot as plt
 
 from dataloader import register_datasets
-from backbones import INSAFusion
+from backbones import DualStreamFusionBackbone, ToyBackbone
 
 from PIL import Image
-from utils import VisableLwirDatasetMapper, PIXEL_MEAN, PIXEL_STD
+from utils import VisableLwirDatasetMapper, PIXEL_MEAN, PIXEL_STD, normalize
 
 setup_logger()
 
 network = "fusionfrcnn"
 # set_name = "set11"
+# set_name = "set11"
+# set_name = "set01"
+# set_name = "set00"
 set_name = "set11"
 # Register datasets if not already registered
 data_dir = 'datasets'  # Update this if your data directory is different
@@ -31,7 +34,7 @@ def setup_cfg():
     cfg = get_cfg()
     cfg.merge_from_file("../../configs/COCO-Detection/faster_rcnn_R_50_FPN_3x.yaml")
     cfg.MODEL.WEIGHTS = last_checkpoint_path  # load the last model
-    cfg.MODEL.BACKBONE.NAME = "INSAFusion"  # Use the custom backbone
+    cfg.MODEL.BACKBONE.NAME = "DualStreamFusionBackbone"  # Use the custom backbone
     cfg.MODEL.ROI_HEADS.NUM_CLASSES = 1  # 1 class (people)
     cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.1  # set the testing threshold for this model
     
@@ -54,15 +57,22 @@ kaist_metadata = MetadataCatalog.get(f"kaist_{set_name}_visible_lwir")
 # Specify the output directory
 output_dir = f"./outputs/{network}/inference_images"
 os.makedirs(output_dir, exist_ok=True)  # Create directory if it doesn't exist
+print('generating...')
 for d in dataset_dicts:
     image_id = d["image_id"]
+    base_img = cv2.imread(d["file_name"]["visible"])
     visible_img = numpy.asarray(Image.open(d["file_name"]["visible"]))
     lwir_img = numpy.expand_dims(numpy.asarray(Image.open(d["file_name"]["lwir"]).convert('L')), -1)
     # print(visible_img.shape, lwir_img.shape)
-    visible_lwir_img = numpy.concatenate((visible_img, lwir_img), axis=-1)
+    visible_lwir_img = normalize(numpy.concatenate((visible_img/255, lwir_img/255), axis=-1), PIXEL_MEAN, PIXEL_STD)
+
     # print(visible_img.shape, visible_lwir_img.shape)
+    # print('visible_lwir_img')
+    # print(visible_lwir_img)
+    
+
     outputs = predictor(visible_lwir_img)
-    v = Visualizer(visible_img[:, :, ::-1], metadata=kaist_metadata, scale=0.5)
+    v = Visualizer(base_img[:, :, ::-1], metadata=kaist_metadata, scale=0.5)
     out = v.draw_instance_predictions(outputs["instances"].to("cpu"))
     print(outputs)
     img_with_boxes = out.get_image()[:, :, ::-1]
